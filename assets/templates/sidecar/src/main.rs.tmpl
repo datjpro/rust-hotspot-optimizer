@@ -1,0 +1,53 @@
+//! Sidecar binary: reads one JSON request on stdin, writes one JSON response on stdout.
+//! Exit codes: 0 ok, 2 bad input, 3 output error. Diagnostics go to stderr only.
+use serde::{Deserialize, Serialize};
+use std::io::{self, Read, Write};
+use std::process::ExitCode;
+
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+#[derive(Deserialize)]
+struct Input {
+    values: Vec<f64>,
+}
+
+#[derive(Serialize)]
+struct Output {
+    result: f64,
+}
+
+fn main() -> ExitCode {
+    let mut buf = String::new();
+    if let Err(e) = io::stdin().read_to_string(&mut buf) {
+        eprintln!("failed to read stdin: {e}");
+        return ExitCode::from(2);
+    }
+    let input: Input = match serde_json::from_str(&buf) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("invalid input JSON: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let output = Output { result: core::sum_squares(&input.values) };
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    if serde_json::to_writer(&mut handle, &output).is_err() || handle.write_all(b"\n").is_err() {
+        return ExitCode::from(3);
+    }
+    ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::core;
+
+    #[test]
+    fn sums_squares() {
+        assert_eq!(core::sum_squares(&[1.0, 2.0, 3.0]), 14.0);
+    }
+}

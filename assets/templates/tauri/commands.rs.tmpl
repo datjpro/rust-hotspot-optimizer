@@ -1,0 +1,33 @@
+//! Hotspot ported to Rust inside a Tauri app (no FFI needed: the backend is already Rust).
+//!
+//! Register it in src-tauri/src/lib.rs (or main.rs):
+//!     mod {{crate_name}};
+//!     tauri::Builder::default()
+//!         .invoke_handler(tauri::generate_handler![{{crate_name}}::sum_squares])
+//!
+//! Call from the frontend: await invoke("sum_squares", { values })
+//! Large payloads are slow over JSON IPC: pass a file path, or return tauri::ipc::Response for bytes.
+
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+/// `async` + spawn_blocking keeps CPU-heavy work off the main thread so the UI stays responsive.
+#[tauri::command]
+pub async fn sum_squares(values: Vec<f64>) -> Result<f64, String> {
+    tauri::async_runtime::spawn_blocking(move || core::sum_squares(&values))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::core;
+
+    #[test]
+    fn sums_squares() {
+        assert_eq!(core::sum_squares(&[1.0, 2.0, 3.0]), 14.0);
+    }
+}

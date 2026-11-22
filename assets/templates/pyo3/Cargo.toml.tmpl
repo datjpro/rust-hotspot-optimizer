@@ -1,0 +1,23 @@
+[package]
+name = "{{crate_name}}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "{{crate_name}}"
+crate-type = ["cdylib", "rlib"]   # rlib lets `cargo test` link without Python
+
+[dependencies]
+# Check the PyO3 guide for the newest version; APIs (Bound<>, allow_threads/detach) change between releases.
+pyo3 = "0.23"
+
+[features]
+# Enabled only when building the wheel (maturin) so that `cargo test` still links.
+extension-module = ["pyo3/extension-module"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+# Do NOT set panic = "abort": a Rust panic must surface as a Python exception, not kill the interpreter.

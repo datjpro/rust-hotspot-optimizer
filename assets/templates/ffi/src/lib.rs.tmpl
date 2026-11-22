@@ -1,0 +1,57 @@
+//! C ABI for hosts such as C#/.NET and Unity (P/Invoke), Go (cgo), Java (JNA/Panama), C/C++.
+//! Rules: no Rust types in signatures, no panics across the boundary, the caller owns its buffers.
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::slice;
+
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+pub const STATUS_OK: i32 = 0;
+pub const STATUS_NULL_POINTER: i32 = 1;
+pub const STATUS_PANIC: i32 = 2;
+
+/// Writes the result to `out` and returns a status code.
+///
+/// # Safety
+/// `values` must point to `len` initialized `f64`s that stay valid for the whole call (it may be
+/// null only when `len == 0`), and `out` must be valid for one `f64` write.
+#[no_mangle]
+pub unsafe extern "C" fn {{crate_name}}_sum_squares(values: *const f64, len: usize, out: *mut f64) -> i32 {
+    if out.is_null() || (values.is_null() && len != 0) {
+        return STATUS_NULL_POINTER;
+    }
+    let outcome = catch_unwind(AssertUnwindSafe(|| {
+        let input: &[f64] = if len == 0 { &[] } else { slice::from_raw_parts(values, len) };
+        core::sum_squares(input)
+    }));
+    match outcome {
+        Ok(v) => {
+            *out = v;
+            STATUS_OK
+        }
+        Err(_) => STATUS_PANIC,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ffi_roundtrip() {
+        let data = [1.0_f64, 2.0, 3.0];
+        let mut out = 0.0;
+        let rc = unsafe { {{crate_name}}_sum_squares(data.as_ptr(), data.len(), &mut out) };
+        assert_eq!(rc, STATUS_OK);
+        assert_eq!(out, 14.0);
+    }
+
+    #[test]
+    fn null_out_is_rejected() {
+        let rc = unsafe { {{crate_name}}_sum_squares(std::ptr::null(), 0, std::ptr::null_mut()) };
+        assert_eq!(rc, STATUS_NULL_POINTER);
+    }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "{{crate_name}}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "{{crate_name}}"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+# Keep the default panic = "unwind": the exported functions use catch_unwind to turn panics
+# into error codes. With panic = "abort" a bug would kill the whole host process.

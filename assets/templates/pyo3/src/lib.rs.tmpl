@@ -1,0 +1,38 @@
+//! Example hotspot port. Replace `sum_squares` with the real function and keep the Python-visible
+//! signature, return shape and exceptions identical to the legacy implementation.
+use pyo3::prelude::*;
+
+/// Pure Rust logic: no Python types here, so it can be unit-tested with plain `cargo test`.
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+#[pyfunction]
+fn sum_squares(py: Python<'_>, values: Vec<f64>) -> f64 {
+    // Release the GIL during pure-Rust work so other Python threads keep running.
+    // (Renamed `Python::detach` in newer PyO3 releases; follow the guide for your version.)
+    py.allow_threads(|| core::sum_squares(&values))
+}
+
+#[pymodule]
+fn {{crate_name}}(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(sum_squares, m)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::core;
+
+    #[test]
+    fn sums_squares() {
+        assert_eq!(core::sum_squares(&[1.0, 2.0, 3.0]), 14.0);
+    }
+
+    #[test]
+    fn empty_is_zero() {
+        assert_eq!(core::sum_squares(&[]), 0.0);
+    }
+}

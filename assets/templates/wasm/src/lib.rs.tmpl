@@ -1,0 +1,25 @@
+//! Example hotspot port for the browser. Build: wasm-pack build --release --target web
+use wasm_bindgen::prelude::*;
+
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+/// Accepts a JS Float64Array. Each call copies the array into WASM memory, so pass large batches
+/// per call rather than many small ones.
+#[wasm_bindgen]
+pub fn sum_squares(values: &[f64]) -> f64 {
+    core::sum_squares(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::core;
+
+    #[test]
+    fn sums_squares() {
+        assert_eq!(core::sum_squares(&[1.0, 2.0, 3.0]), 14.0);
+    }
+}

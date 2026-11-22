@@ -1,0 +1,20 @@
+// C# side of the {{crate_name}} native library (works in .NET and Unity with a native plugin).
+// Put the built library next to the executable / in Assets/Plugins/<platform>/.
+using System;
+using System.Runtime.InteropServices;
+
+internal static class {{CrateNamePascal}}Native
+{
+    private const string Lib = "{{crate_name}}";
+
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int {{crate_name}}_sum_squares(double[] values, UIntPtr len, out double result);
+
+    public static double SumSquares(double[] values)
+    {
+        int status = {{crate_name}}_sum_squares(values, (UIntPtr)values.Length, out double result);
+        if (status != 0)
+            throw new InvalidOperationException($"{{crate_name}}_sum_squares failed with status {status}");
+        return result;
+    }
+}

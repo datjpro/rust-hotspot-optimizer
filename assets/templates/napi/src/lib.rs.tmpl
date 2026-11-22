@@ -1,0 +1,27 @@
+//! Example hotspot port. Replace `sum_squares`; keep the JS-visible signature identical to legacy.
+#![deny(clippy::all)]
+
+use napi::bindgen_prelude::Float64Array;
+use napi_derive::napi;
+
+mod core {
+    pub fn sum_squares(values: &[f64]) -> f64 {
+        values.iter().map(|v| v * v).sum()
+    }
+}
+
+/// Takes a Float64Array so the data is shared with JS instead of copied element by element.
+#[napi]
+pub fn sum_squares(values: Float64Array) -> f64 {
+    core::sum_squares(values.as_ref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::core;
+
+    #[test]
+    fn sums_squares() {
+        assert_eq!(core::sum_squares(&[1.0, 2.0, 3.0]), 14.0);
+    }
+}
